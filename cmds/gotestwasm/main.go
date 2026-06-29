@@ -204,14 +204,11 @@ func runTestInBrowser(pkg testmain.TestPackage, config testmain.BuildConfig) {
 	fmt.Print(output)
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "\nError running tests: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error running tests: %v\n", err)
 		os.Exit(1)
 	}
 
-	if passed {
-		fmt.Println("\nPASS")
-	} else {
-		fmt.Println("\nFAIL")
+	if !passed {
 		os.Exit(1)
 	}
 }

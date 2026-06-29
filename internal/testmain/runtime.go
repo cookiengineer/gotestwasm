@@ -46,6 +46,7 @@ const indexHTML = `<!DOCTYPE html>
 	};
 
 	var go = new Go();
+	go.argv = ["js", "-test.v"];
 
 	go.exit = function(code) {
 		var result = code === 0 ? "PASS" : "FAIL";
