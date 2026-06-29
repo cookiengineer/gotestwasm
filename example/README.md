@@ -35,8 +35,6 @@ Expected output:
 PASS
 ```
 
-![Test output](./screenshot.png)
-
 If the viewport is too small the test fails with a descriptive error:
 
 ```
