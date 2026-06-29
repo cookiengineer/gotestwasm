@@ -6,19 +6,23 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cookiengineer/gotestwasm/internal/testmain"
 )
 
 var (
-	outputFile  string
-	outputDir   string
-	buildTags   string
-	genOnly     bool
-	verbose     bool
-	ldflags     string
-	gcflags     string
-	printMain   bool
+	outputFile   string
+	outputDir    string
+	buildTags    string
+	genOnly      bool
+	verbose      bool
+	ldflags      string
+	gcflags      string
+	printMain    bool
+	runTests     bool
+	chromiumPath string
+	timeoutMs    int
 )
 
 func init() {
@@ -30,16 +34,20 @@ func init() {
 	flag.StringVar(&ldflags, "ldflags", "", "extra linker flags")
 	flag.StringVar(&gcflags, "gcflags", "", "extra compiler flags")
 	flag.BoolVar(&printMain, "printmain", false, "print generated _testmain.go to stdout")
+	flag.BoolVar(&runTests, "run", false, "run tests in headless Chromium after build")
+	flag.StringVar(&chromiumPath, "chromium", "chromium", "path to Chromium binary")
+	flag.IntVar(&timeoutMs, "timeout", 30000, "test timeout in milliseconds for headless run")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: gotestwasm [flags] [packages]\n\n")
 		fmt.Fprintf(os.Stderr, "Flags:\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
-		fmt.Fprintf(os.Stderr, "  gotestwasm ./...                    build tests.wasm for all packages\n")
-		fmt.Fprintf(os.Stderr, "  gotestwasm -o mytests.wasm .        custom output name\n")
-		fmt.Fprintf(os.Stderr, "  gotestwasm -gen ./mypackage          generate _testmain.go only\n")
-		fmt.Fprintf(os.Stderr, "  gotestwasm -tags=integration ./...   build with build tags\n")
+		fmt.Fprintf(os.Stderr, "  gotestwasm ./...                     build tests.wasm for all packages\n")
+		fmt.Fprintf(os.Stderr, "  gotestwasm -o mytests.wasm .         custom output name\n")
+		fmt.Fprintf(os.Stderr, "  gotestwasm -gen ./mypackage           generate _testmain.go only\n")
+		fmt.Fprintf(os.Stderr, "  gotestwasm -tags=integration ./...    build with build tags\n")
+		fmt.Fprintf(os.Stderr, "  gotestwasm -run -tags=wasm ./example  build and run in headless Chromium\n")
 	}
 }
 
@@ -57,8 +65,8 @@ func main() {
 	}
 
 	config := testmain.BuildConfig{
-		OutputDir:    outputDir,
-		BuildTags:    tagsList,
+		OutputDir: outputDir,
+		BuildTags: tagsList,
 	}
 
 	if ldflags != "" {
@@ -132,6 +140,14 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+
+	if runTests {
+		if len(pkgs) != 1 {
+			fmt.Fprintf(os.Stderr, "Error: --run requires exactly one test package\n")
+			os.Exit(1)
+		}
+		runTestInBrowser(pkgs[0], config)
+	}
 }
 
 func buildSinglePackage(pkg testmain.TestPackage, config testmain.BuildConfig) error {
@@ -163,6 +179,41 @@ func buildMultiplePackages(pkgs []testmain.TestPackage, config testmain.BuildCon
 	}
 
 	return nil
+}
+
+func runTestInBrowser(pkg testmain.TestPackage, config testmain.BuildConfig) {
+	wasmPath := filepath.Join(outputDir, outputFile)
+
+	testDir, err := testmain.AssembleTestDir(outputDir, wasmPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error assembling test environment: %v\n", err)
+		os.Exit(1)
+	}
+	defer os.RemoveAll(testDir)
+
+	fmt.Printf("\nTest directory: %s\n", testDir)
+
+	runConfig := testmain.DefaultTestRunConfig()
+	runConfig.ChromiumPath = chromiumPath
+	runConfig.Timeout = time.Duration(timeoutMs) * time.Millisecond
+
+	fmt.Printf("Running tests in headless Chromium...\n\n")
+
+	passed, output, err := testmain.RunTests(testDir, runConfig)
+
+	fmt.Print(output)
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "\nError running tests: %v\n", err)
+		os.Exit(1)
+	}
+
+	if passed {
+		fmt.Println("\nPASS")
+	} else {
+		fmt.Println("\nFAIL")
+		os.Exit(1)
+	}
 }
 
 func generateTestmainFile(content []byte, dir string) {
