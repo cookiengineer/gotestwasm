@@ -1,0 +1,42 @@
+{
+	"project": {
+		"root": ".",
+		"workspaceIsolation": true
+	},
+
+	"filesystem": {
+		"mode": "restricted",
+		"allowedPaths": [
+			"./"
+		],
+		"blockedPaths": [
+			"/",
+			"/home",
+			"/boot",
+			"/etc",
+			"/proc",
+			"/usr",
+			"/sys",
+			"/tmp",
+			"/var",
+			"C:\\",
+			"D:\\",
+			"/Users"
+		],
+		"denyOutsideWorkspace": true,
+		"preventPathTraversal": true
+	},
+	"agent": {
+		"permissions": {
+			"readOutsideWorkspace": false,
+			"writeOutsideWorkspace": false,
+			"executeOutsideWorkspace": false
+		}
+	},
+	"tools": {
+		"fileSystem": {
+			"strictMode": true,
+			"maxDepthTraversal": 50
+		}
+	}
+}
